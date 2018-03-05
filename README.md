@@ -3,6 +3,10 @@
 The codebase implements a starter agent that can solve a number of `universe` environments.
 It contains a basic implementation of the [A3C algorithm](https://arxiv.org/abs/1602.01783), adapted for real-time environments.
 
+# To-Dos
+* Command line argument to specify scenario file
+* How to save output files (optionally save output file)
+
 # Dependencies
 
 * Python 2.7 or 3.5

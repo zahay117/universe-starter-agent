@@ -1,3 +1,5 @@
+import sys
+sys.path.append(r'/home/zach/Desktop/gym-ras-simulation')
 import cv2
 from gym.spaces.box import Box
 import numpy as np
@@ -10,21 +12,27 @@ from universe.wrappers import BlockingReset, GymCoreAction, EpisodeID, Unvectori
 from universe import spaces as vnc_spaces
 from universe.spaces.vnc_event import keycode
 import time
+from gym_ras_simulation.envs.ras_env import RASEnv
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 universe.configure_logging()
 
 def create_env(env_id, client_id, remotes, **kwargs):
-    spec = gym.spec(env_id)
-
-    if spec.tags.get('flashgames', False):
-        return create_flash_env(env_id, client_id, remotes, **kwargs)
-    elif spec.tags.get('atari', False) and spec.tags.get('vnc', False):
-        return create_vncatari_env(env_id, client_id, remotes, **kwargs)
+    if env_id == "ate3":
+        # To-Do: command line argument to specify the scenario file
+        # To-Do (Urgent): dynamically specify port number
+        return RASEnv("ate3-test-scenario.json", local_port=8081, log_steps=10)
     else:
-        # Assume atari.
-        assert "." not in env_id  # universe environments have dots in names.
-        return create_atari_env(env_id)
+        spec = gym.spec(env_id)
+        if spec.tags.get('flashgames', False):
+            return create_flash_env(env_id, client_id, remotes, **kwargs)
+        elif spec.tags.get('atari', False) and spec.tags.get('vnc', False):
+            return create_vncatari_env(env_id, client_id, remotes, **kwargs)
+        else:
+            # Assume atari.
+            assert "." not in env_id  # universe environments have dots in names.
+            return create_atari_env(env_id)
 
 def create_flash_env(env_id, client_id, remotes, **_):
     env = gym.make(env_id)

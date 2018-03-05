@@ -23,6 +23,7 @@ class FastSaver(tf.train.Saver):
                                     meta_graph_suffix, False)
 
 def run(args, server):
+    # To-Do: replace with ATE3 environment
     env = create_env(args.env_id, client_id=str(args.task), remotes=args.remotes)
     trainer = A3C(env, args.task, args.visualise)
 
