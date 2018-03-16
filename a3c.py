@@ -200,7 +200,7 @@ should be computed.
                 # the "policy gradients" loss:  its derivative is precisely the policy gradient
                 # notice that self.ac is a placeholder that is provided externally.
                 # adv will contain the advantages, as calculated in process_rollout
-                pi_loss = - tf.reduce_sum(tf.log(pi.logits) * self.adv)
+                pi_loss = - log_pi(pi.logits, self.ac) * self.adv
 
                 # loss of value function
                 vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
@@ -321,5 +321,11 @@ server.
             self.summary_writer.flush()
         self.local_steps += 1
 
-def log_pi(logits):
-    -0.5 * 
+# calculate the log of the normal distributioncentered at logits
+def log_pi(logits, action, variance = 0.5):
+    log = tf.log(tf.scalar_mul(2 * variance, tf.constant(math.pi)))
+    lh_sum = tf.scalar_mul(-0.5, log)
+    rh_sum = tf.scalar_mul(-0.5 * (1.0 / variance), tf.norm(logits - action))
+    return lh_sum + rh_sum
+    
+    
