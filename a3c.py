@@ -2,7 +2,7 @@ from __future__ import print_function
 from collections import namedtuple
 import numpy as np
 import tensorflow as tf
-from model import LSTMPolicy
+from model import LSTMPolicy, LSTMPolicyContinuous
 import six.moves.queue as queue
 import scipy.signal
 import threading
@@ -159,7 +159,7 @@ runner appends the policy to the queue.
         yield rollout
 
 class A3C(object):
-    def __init__(self, env, task, visualise):
+    def __init__(self, env, task, visualise, is_ate3 = True):
         """
 An implementation of the A3C algorithm that is reasonably well-tuned for the VNC environments.
 Below, we will have a modest amount of complexity due to the way TensorFlow handles data parallelism.
@@ -173,34 +173,66 @@ should be computed.
         with tf.device(tf.train.replica_device_setter(1, worker_device=worker_device)):
             with tf.variable_scope("global"):
                 # To-Do: env.action_space.n -> env.action_space.shape
-                self.network = LSTMPolicy(env.observation_space.shape, env.action_space.n)
+                if (is_ate3) :
+                    self.network = LSTMPolicyContinuous(env.observation_space.shape, env.action_space.shape)
+                else :
+                    self.network = LSTMPolicy(env.observation_space.shape, env.action_space.n)
                 self.global_step = tf.get_variable("global_step", [], tf.int32, initializer=tf.constant_initializer(0, dtype=tf.int32),
                                                    trainable=False)
 
         with tf.device(worker_device):
             with tf.variable_scope("local"):
                 # To-Do: env.action_space.n -> env.action_space.shape
-                self.local_network = pi = LSTMPolicy(env.observation_space.shape, env.action_space.n)
+                if (is_ate3) :
+                    self.local_network = pi = LSTMPolicyContinuous(env.observation_space.shape, env.action_space.shape)
+                else :
+                    self.local_network = pi = LSTMPolicy(env.observation_space.shape, env.action_space.n)
                 pi.global_step = self.global_step
 
-            self.ac = tf.placeholder(tf.float32, [None, env.action_space.n], name="ac")
+            if (is_ate3):
+                self.ac = tf.placeholder(tf.float32, [None, env.action_space[0]], name="ac")
+            else:
+                self.ac = tf.placeholder(tf.float32, [None, env.action_space.n], name="ac")
             self.adv = tf.placeholder(tf.float32, [None], name="adv")
             self.r = tf.placeholder(tf.float32, [None], name="r")
 
-            log_prob_tf = tf.nn.log_softmax(pi.logits)
-            prob_tf = tf.nn.softmax(pi.logits)
+            if is_ate3:
+                log_prob_tf = tf.nn.log_softmax(pi.logits)
+                prob_tf = tf.nn.softmax(pi.logits)
 
-            # the "policy gradients" loss:  its derivative is precisely the policy gradient
-            # notice that self.ac is a placeholder that is provided externally.
-            # adv will contain the advantages, as calculated in process_rollout
-            pi_loss = - tf.reduce_sum(tf.reduce_sum(log_prob_tf * self.ac, [1]) * self.adv)
+                # the "policy gradients" loss:  its derivative is precisely the policy gradient
+                # notice that self.ac is a placeholder that is provided externally.
+                # adv will contain the advantages, as calculated in process_rollout
+                variance = tf.exp(1 + tf.log(pi.logits[-1]))
+                variance = tf.fill(tf.shape(pi.logits), value=pi.logits[-1])
+                tf.distributions.Normal(loc=pi.logits, scale=variance).sample()
+                pi_loss = - tf.reduce_sum(tf.reduce_sum(log_prob_tf * self.ac, [1]) * self.adv)
 
-            # loss of value function
-            vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
-            entropy = - tf.reduce_sum(prob_tf * log_prob_tf)
+                # loss of value function
+                vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
 
-            bs = tf.to_float(tf.shape(pi.x)[0])
-            self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
+                # To-Do: Non-Zero Entropy
+                entropy = 0
+
+                bs = tf.to_float(tf.shape(pi.x)[0])
+                self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
+            else:
+                log_prob_tf = tf.nn.log_softmax(pi.logits)
+                prob_tf = tf.nn.softmax(pi.logits)
+
+                # the "policy gradients" loss:  its derivative is precisely the policy gradient
+                # notice that self.ac is a placeholder that is provided externally.
+                # adv will contain the advantages, as calculated in process_rollout
+                pi_loss = - tf.reduce_sum(tf.reduce_sum(log_prob_tf * self.ac, [1]) * self.adv)
+
+                # loss of value function
+                vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
+
+                # To-Do: Non-Zero Entropy
+                entropy = - tf.reduce_sum(prob_tf * log_prob_tf)
+
+                bs = tf.to_float(tf.shape(pi.x)[0])
+                self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
 
             # 20 represents the number of "local steps":  the number of timesteps
             # we run the policy before we update the parameters.

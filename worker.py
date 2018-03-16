@@ -25,7 +25,7 @@ class FastSaver(tf.train.Saver):
 def run(args, server):
     # To-Do: replace with ATE3 environment
     env = create_env(args.env_id, client_id=str(args.task), remotes=args.remotes)
-    trainer = A3C(env, args.task, args.visualise)
+    trainer = A3C(env, args.task, args.visualise, args.env_id == "ate3")
 
     # Variable names that start with "local" are not saved in checkpoints.
     if use_tf12_api:

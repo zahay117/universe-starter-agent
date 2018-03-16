@@ -22,7 +22,7 @@ def create_env(env_id, client_id, remotes, **kwargs):
     if env_id == "ate3":
         # To-Do: command line argument to specify the scenario file
         # To-Do (Urgent): dynamically specify port number
-        return RASEnv("ate3-test-scenario.json", local_port=8081, log_steps=10)
+        return RASEnv("test-scenario-3_config.json", local_port=8082, log_steps=10)
     else:
         spec = gym.spec(env_id)
         if spec.tags.get('flashgames', False):

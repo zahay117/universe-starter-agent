@@ -6,6 +6,7 @@ It contains a basic implementation of the [A3C algorithm](https://arxiv.org/abs/
 # To-Dos
 * Command line argument to specify scenario file
 * How to save output files (optionally save output file)
+* Non-Zero Entropy
 
 # Dependencies
 
