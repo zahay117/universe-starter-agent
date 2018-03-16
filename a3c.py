@@ -197,16 +197,10 @@ should be computed.
             self.r = tf.placeholder(tf.float32, [None], name="r")
 
             if is_ate3:
-                log_prob_tf = tf.nn.log_softmax(pi.logits)
-                prob_tf = tf.nn.softmax(pi.logits)
-
                 # the "policy gradients" loss:  its derivative is precisely the policy gradient
                 # notice that self.ac is a placeholder that is provided externally.
                 # adv will contain the advantages, as calculated in process_rollout
-                variance = tf.exp(1 + tf.log(pi.logits[-1]))
-                variance = tf.fill(tf.shape(pi.logits), value=pi.logits[-1])
-                tf.distributions.Normal(loc=pi.logits, scale=variance).sample()
-                pi_loss = - tf.reduce_sum(tf.reduce_sum(log_prob_tf * self.ac, [1]) * self.adv)
+                pi_loss = - tf.reduce_sum(tf.log(pi.logits) * self.adv)
 
                 # loss of value function
                 vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
@@ -326,3 +320,6 @@ server.
             self.summary_writer.add_summary(tf.Summary.FromString(fetched[0]), fetched[-1])
             self.summary_writer.flush()
         self.local_steps += 1
+
+def log_pi(logits):
+    -0.5 * 

@@ -44,6 +44,10 @@ def categorical_sample(logits, d):
     value = tf.squeeze(tf.multinomial(logits - tf.reduce_max(logits, [1], keep_dims=True), 1), [1])
     return tf.one_hot(value, d)
 
+def normal_sample(logits, d, variance=0.5):
+    variance = tf.fill(tf.shape(logits), value=pi.logits[-1])
+    return tf.distributions.Normal(loc=logits, scale=variance).sample()
+
 class LSTMPolicy(object):
     def __init__(self, ob_space, ac_space):
         self.x = x = tf.placeholder(tf.float32, [None] + list(ob_space))
@@ -133,10 +137,10 @@ class LSTMPolicyContinuous(object):
             time_major=False)
         lstm_c, lstm_h = lstm_state
         x = tf.reshape(lstm_outputs, [-1, size])
-        self.logits = linear(x, ac_space[0] + 1, "action", normalized_columns_initializer(0.01))
+        self.logits = linear(x, ac_space[0], "action", normalized_columns_initializer(0.01))
         self.vf = tf.reshape(linear(x, 1, "value", normalized_columns_initializer(1.0)), [-1])
         self.state_out = [lstm_c[:1, :], lstm_h[:1, :]]
-        self.sample = categorical_sample(self.logits, ac_space[0])[0, :]
+        self.sample = normal_sample(self.logits, ac_space[0])[0, :]
         self.var_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, tf.get_variable_scope().name)
 
 
