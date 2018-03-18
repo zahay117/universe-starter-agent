@@ -6,7 +6,7 @@ use_tf100_api = distutils.version.LooseVersion(tf.VERSION) >= distutils.version.
 
 def normalized_columns_initializer(std=1.0):
     def _initializer(shape, dtype=None, partition_info=None):
-        out = np.random.randn(*shape).astype(np.float32)
+        out = np.random.randn(*shape).astype(np.float64)
         out *= std / np.sqrt(np.square(out).sum(axis=0, keepdims=True))
         return tf.constant(out)
     return _initializer
@@ -14,7 +14,7 @@ def normalized_columns_initializer(std=1.0):
 def flatten(x):
     return tf.reshape(x, [-1, np.prod(x.get_shape().as_list()[1:])])
 
-def conv2d(x, num_filters, name, filter_size=(3, 3), stride=(1, 1), pad="SAME", dtype=tf.float32, collections=None):
+def conv2d(x, num_filters, name, filter_size=(3, 3), stride=(1, 1), pad="SAME", dtype=tf.float64, collections=None):
     with tf.variable_scope(name):
         stride_shape = [1, stride[0], stride[1], 1]
         filter_shape = [filter_size[0], filter_size[1], int(x.get_shape()[3]), num_filters]
@@ -36,8 +36,8 @@ def conv2d(x, num_filters, name, filter_size=(3, 3), stride=(1, 1), pad="SAME", 
         return tf.nn.conv2d(x, w, stride_shape, pad) + b
 
 def linear(x, size, name, initializer=None, bias_init=0):
-    w = tf.get_variable(name + "/w", [x.get_shape()[1], size], initializer=initializer)
-    b = tf.get_variable(name + "/b", [size], initializer=tf.constant_initializer(bias_init))
+    w = tf.get_variable(name + "/w", [x.get_shape()[1], size], initializer=initializer, dtype=tf.float64)
+    b = tf.get_variable(name + "/b", [size], initializer=tf.constant_initializer(bias_init), dtype=tf.float64)
     return tf.matmul(x, w) + b
 
 def categorical_sample(logits, d):
@@ -45,12 +45,14 @@ def categorical_sample(logits, d):
     return tf.one_hot(value, d)
 
 def normal_sample(logits, d, variance=0.5):
-    variance = tf.fill(tf.shape(logits), value=pi.logits[-1])
-    return tf.distributions.Normal(loc=logits, scale=variance).sample()
+    sample = tf.random_normal([1], mean=logits[0], stddev=variance**0.5, dtype=tf.float64)
+    for i in range(1, d):
+        sample = tf.concat(0, [sample, tf.random_normal(np.array([i]), mean=logits[0], stddev=variance**0.5, dtype=tf.float64)])
+    return sample
 
 class LSTMPolicy(object):
     def __init__(self, ob_space, ac_space):
-        self.x = x = tf.placeholder(tf.float32, [None] + list(ob_space))
+        self.x = x = tf.placeholder(tf.float64, [None] + list(ob_space))
         # To-Do: Convolutional layers -> Fully connected layers
         for i in range(4):
             x = tf.nn.elu(conv2d(x, 32, "l{}".format(i + 1), [3, 3], [2, 2]))
@@ -65,13 +67,13 @@ class LSTMPolicy(object):
         self.state_size = lstm.state_size
         step_size = tf.shape(self.x)[:1]
 
-        c_init = np.zeros((1, lstm.state_size.c), np.float32)
-        h_init = np.zeros((1, lstm.state_size.h), np.float32)
+        c_init = np.zeros((1, lstm.state_size.c), np.float64)
+        h_init = np.zeros((1, lstm.state_size.h), np.float64)
         self.state_init = [c_init, h_init]
         # cell-state units
-        c_in = tf.placeholder(tf.float32, [1, lstm.state_size.c])
+        c_in = tf.placeholder(tf.float64, [1, lstm.state_size.c])
         # hidden state units
-        h_in = tf.placeholder(tf.float32, [1, lstm.state_size.h])
+        h_in = tf.placeholder(tf.float64, [1, lstm.state_size.h])
         self.state_in = [c_in, h_in]
 
         if use_tf100_api:
@@ -104,7 +106,7 @@ class LSTMPolicy(object):
 
 class LSTMPolicyContinuous(object):
     def __init__(self, ob_space, ac_space):
-        self.x = x = tf.placeholder(tf.float32, [None] + list(ob_space))
+        self.x = x = tf.placeholder(tf.float64, [None] + list(ob_space))
         for i in range(4):
             x = linear(x, 256, "l{}".format(i + 1))
             x = tf.nn.relu(x)
@@ -119,13 +121,13 @@ class LSTMPolicyContinuous(object):
         self.state_size = lstm.state_size
         step_size = tf.shape(self.x)[:1]
 
-        c_init = np.zeros((1, lstm.state_size.c), np.float32)
-        h_init = np.zeros((1, lstm.state_size.h), np.float32)
+        c_init = np.zeros((1, lstm.state_size.c), np.float64)
+        h_init = np.zeros((1, lstm.state_size.h), np.float64)
         self.state_init = [c_init, h_init]
         # cell-state units
-        c_in = tf.placeholder(tf.float32, [1, lstm.state_size.c])
+        c_in = tf.placeholder(tf.float64, [1, lstm.state_size.c])
         # hidden state units
-        h_in = tf.placeholder(tf.float32, [1, lstm.state_size.h])
+        h_in = tf.placeholder(tf.float64, [1, lstm.state_size.h])
         self.state_in = [c_in, h_in]
 
         if use_tf100_api:

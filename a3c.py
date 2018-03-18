@@ -190,11 +190,11 @@ should be computed.
                 pi.global_step = self.global_step
 
             if (is_ate3):
-                self.ac = tf.placeholder(tf.float32, [None, env.action_space[0]], name="ac")
+                self.ac = tf.placeholder(tf.float64, [None, env.action_space[0]], name="ac")
             else:
-                self.ac = tf.placeholder(tf.float32, [None, env.action_space.n], name="ac")
-            self.adv = tf.placeholder(tf.float32, [None], name="adv")
-            self.r = tf.placeholder(tf.float32, [None], name="r")
+                self.ac = tf.placeholder(tf.float64, [None, env.action_space.n], name="ac")
+            self.adv = tf.placeholder(tf.float64, [None], name="adv")
+            self.r = tf.placeholder(tf.float64, [None], name="r")
 
             if is_ate3:
                 # the "policy gradients" loss:  its derivative is precisely the policy gradient
