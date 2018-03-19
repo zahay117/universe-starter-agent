@@ -8,6 +8,8 @@ It contains a basic implementation of the [A3C algorithm](https://arxiv.org/abs/
 * How to save output files (optionally save output file)
 * Non-Zero Entropy
 
+There is a large issue with float64 used by the ate3 env and float32 used by universe starter agent
+
 # Dependencies
 
 * Python 2.7 or 3.5

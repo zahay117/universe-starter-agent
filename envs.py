@@ -1,5 +1,5 @@
 import sys
-sys.path.append(r'/home/zach/Desktop/gym-ras-simulation')
+sys.path.append('/home/cis455/Desktop/gym-ras-simulation')
 import cv2
 from gym.spaces.box import Box
 import numpy as np
@@ -18,11 +18,12 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 universe.configure_logging()
 
-def create_env(env_id, client_id, remotes, **kwargs):
+def create_env(env_id, port, client_id, remotes, **kwargs):
     if env_id == "ate3":
         # To-Do: command line argument to specify the scenario file
         # To-Do (Urgent): dynamically specify port number
-        return RASEnv("test-scenario-3_config.json", local_port=8082, log_steps=10)
+        return RASEnv("ate3-test-scenario_config.json", local_port=port, log_steps=10,
+                      docker_directory="/home/cis455/Desktop/gym-ras-simulation/docker")
     else:
         spec = gym.spec(env_id)
         if spec.tags.get('flashgames', False):

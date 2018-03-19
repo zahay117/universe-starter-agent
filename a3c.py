@@ -122,7 +122,8 @@ runner appends the policy to the queue.
             fetched = policy.act(last_state, *last_features)
             action, value_, features = fetched[0], fetched[1], fetched[2:]
             # argmax to convert from one-hot
-            state, reward, terminal, info = env.step(action.argmax())
+            # action.argmax() for discrete action space
+            state, reward, terminal, info = env.step(action)
             if render:
                 env.render()
 
@@ -141,7 +142,8 @@ runner appends the policy to the queue.
                 summary_writer.add_summary(summary, policy.global_step.eval())
                 summary_writer.flush()
 
-            timestep_limit = env.spec.tags.get('wrapper_config.TimeLimit.max_episode_steps')
+            timestep_limit = 100000
+            # originally this: env.spec.tags.get('wrapper_config.TimeLimit.max_episode_steps')
             if terminal or length >= timestep_limit:
                 terminal_end = True
                 if length >= timestep_limit or not env.metadata.get('semantics.autoreset'):
@@ -190,7 +192,7 @@ should be computed.
                 pi.global_step = self.global_step
 
             if (is_ate3):
-                self.ac = tf.placeholder(tf.float64, [None, env.action_space[0]], name="ac")
+                self.ac = tf.placeholder(tf.float64, [None, env.action_space.shape[0]], name="ac")
             else:
                 self.ac = tf.placeholder(tf.float64, [None, env.action_space.n], name="ac")
             self.adv = tf.placeholder(tf.float64, [None], name="adv")
@@ -200,7 +202,7 @@ should be computed.
                 # the "policy gradients" loss:  its derivative is precisely the policy gradient
                 # notice that self.ac is a placeholder that is provided externally.
                 # adv will contain the advantages, as calculated in process_rollout
-                pi_loss = - log_pi(pi.logits, self.ac) * self.adv
+                pi_loss = tf.nn.l2_loss(self.ac - pi.logits)
 
                 # loss of value function
                 vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
@@ -225,7 +227,7 @@ should be computed.
                 # To-Do: Non-Zero Entropy
                 entropy = - tf.reduce_sum(prob_tf * log_prob_tf)
 
-                bs = tf.to_float(tf.shape(pi.x)[0])
+                bs = tf.to_float(tf.shape(pi.x)[0], dtye)
                 self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
 
             # 20 represents the number of "local steps":  the number of timesteps
@@ -240,10 +242,10 @@ should be computed.
             grads = tf.gradients(self.loss, pi.var_list)
 
             if use_tf12_api:
-                tf.summary.scalar("model/policy_loss", pi_loss / bs)
-                tf.summary.scalar("model/value_loss", vf_loss / bs)
-                tf.summary.scalar("model/entropy", entropy / bs)
-                tf.summary.image("model/state", pi.x)
+                tf.summary.scalar("model/policy_loss", tf.to_float(pi_loss) / bs)
+                tf.summary.scalar("model/value_loss", tf.to_float(vf_loss) / bs)
+                tf.summary.scalar("model/entropy", tf.to_float(entropy) / bs)
+                tf.summary.image("model/state", tf.to_float(pi.x))
                 tf.summary.scalar("model/grad_global_norm", tf.global_norm(grads))
                 tf.summary.scalar("model/var_global_norm", tf.global_norm(pi.var_list))
                 self.summary_op = tf.summary.merge_all()
@@ -321,11 +323,4 @@ server.
             self.summary_writer.flush()
         self.local_steps += 1
 
-# calculate the log of the normal distributioncentered at logits
-def log_pi(logits, action, variance = 0.5):
-    log = tf.log(tf.scalar_mul(2 * variance, tf.constant(math.pi)))
-    lh_sum = tf.scalar_mul(-0.5, log)
-    rh_sum = tf.scalar_mul(-0.5 * (1.0 / variance), tf.norm(logits - action))
-    return lh_sum + rh_sum
-    
-    
+

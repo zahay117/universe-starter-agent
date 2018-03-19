@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import cv2
+#import cv2
 import go_vncdriver
 import tensorflow as tf
 import argparse
@@ -24,7 +24,7 @@ class FastSaver(tf.train.Saver):
 
 def run(args, server):
     # To-Do: replace with ATE3 environment
-    env = create_env(args.env_id, client_id=str(args.task), remotes=args.remotes)
+    env = create_env(args.env_id, args.port, client_id=str(args.task), remotes=args.remotes)
     trainer = A3C(env, args.task, args.visualise, args.env_id == "ate3")
 
     # Variable names that start with "local" are not saved in checkpoints.
@@ -123,6 +123,7 @@ Setting up Tensorflow for data parallel work
                         help='References to environments to create (e.g. -r 20), '
                              'or the address of pre-existing VNC servers and '
                              'rewarders to use (e.g. -r vnc://localhost:5900+15900,vnc://localhost:5901+15901)')
+    parser.add_argument('--port', default=8082, type=int)
 
     # Add visualisation argument
     parser.add_argument('--visualise', action='store_true',

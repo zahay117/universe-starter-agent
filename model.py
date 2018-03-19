@@ -45,9 +45,10 @@ def categorical_sample(logits, d):
     return tf.one_hot(value, d)
 
 def normal_sample(logits, d, variance=0.5):
-    sample = tf.random_normal([1], mean=logits[0], stddev=variance**0.5, dtype=tf.float64)
-    for i in range(1, d):
-        sample = tf.concat(0, [sample, tf.random_normal(np.array([i]), mean=logits[0], stddev=variance**0.5, dtype=tf.float64)])
+    sample = []
+    for i in range(d):
+        sample.append(tf.expand_dims(tf.random_normal([1], mean=logits[:, i], stddev=variance**0.5, dtype=tf.float64), 1))
+    sample = tf.concat(1, sample)
     return sample
 
 class LSTMPolicy(object):
