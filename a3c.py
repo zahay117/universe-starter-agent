@@ -99,7 +99,7 @@ that would constantly interact with the environment and tell it what to do.  Thi
             # won't die with it, unless the timeout is set to some large number.  This is an empirical
             # observation.
 
-            self.queue.put(next(rollout_provider), timeout=600.0)
+            self.queue.put(next(rollout_provider), timeout=600000.0)
 
 
 
@@ -123,7 +123,11 @@ runner appends the policy to the queue.
             action, value_, features = fetched[0], fetched[1], fetched[2:]
             # argmax to convert from one-hot
             # action.argmax() for discrete action space
-            state, reward, terminal, info = env.step(action)
+            result = env.step(action)
+            state = result[0]
+            reward = result[1]
+            terminal = result[2]
+
             if render:
                 env.render()
 
@@ -134,7 +138,7 @@ runner appends the policy to the queue.
 
             last_state = state
             last_features = features
-
+            info = {}
             if info:
                 summary = tf.Summary()
                 for k, v in info.items():
@@ -245,7 +249,7 @@ should be computed.
                 tf.summary.scalar("model/policy_loss", tf.to_float(pi_loss) / bs)
                 tf.summary.scalar("model/value_loss", tf.to_float(vf_loss) / bs)
                 tf.summary.scalar("model/entropy", tf.to_float(entropy) / bs)
-                tf.summary.image("model/state", tf.to_float(pi.x))
+                #tf.summary.image("model/state", tf.to_float(pi.x))
                 tf.summary.scalar("model/grad_global_norm", tf.global_norm(grads))
                 tf.summary.scalar("model/var_global_norm", tf.global_norm(pi.var_list))
                 self.summary_op = tf.summary.merge_all()
