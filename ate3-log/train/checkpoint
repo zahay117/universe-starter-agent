@@ -1,0 +1,6 @@
+model_checkpoint_path: "/home/cis455/Desktop/universe-starter-agent/ate3-log/train/model.ckpt-10094"
+all_model_checkpoint_paths: "/home/cis455/Desktop/universe-starter-agent/ate3-log/train/model.ckpt-3620"
+all_model_checkpoint_paths: "/home/cis455/Desktop/universe-starter-agent/ate3-log/train/model.ckpt-5234"
+all_model_checkpoint_paths: "/home/cis455/Desktop/universe-starter-agent/ate3-log/train/model.ckpt-6838"
+all_model_checkpoint_paths: "/home/cis455/Desktop/universe-starter-agent/ate3-log/train/model.ckpt-8418"
+all_model_checkpoint_paths: "/home/cis455/Desktop/universe-starter-agent/ate3-log/train/model.ckpt-10094"

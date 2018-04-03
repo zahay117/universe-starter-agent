@@ -231,7 +231,7 @@ should be computed.
                 # To-Do: Non-Zero Entropy
                 entropy = - tf.reduce_sum(prob_tf * log_prob_tf)
 
-                bs = tf.to_float(tf.shape(pi.x)[0], dtye)
+                bs = tf.to_float(tf.shape(pi.x)[0])
                 self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
 
             # 20 represents the number of "local steps":  the number of timesteps

@@ -10,6 +10,7 @@ import os
 from a3c import A3C
 from envs import create_env
 import distutils.version
+
 use_tf12_api = distutils.version.LooseVersion(tf.VERSION) >= distutils.version.LooseVersion('0.12.0')
 
 logger = logging.getLogger(__name__)
@@ -22,9 +23,9 @@ class FastSaver(tf.train.Saver):
         super(FastSaver, self).save(sess, save_path, global_step, latest_filename,
                                     meta_graph_suffix, False)
 
-def run(args, server):
+def run(args, server, task_num):
     # To-Do: replace with ATE3 environment
-    env = create_env(args.env_id, args.port, client_id=str(args.task), remotes=args.remotes)
+    env = create_env(args.env_id, 8082 + task_num, client_id=str(args.task), remotes=args.remotes)
     trainer = A3C(env, args.task, args.visualise, args.env_id == "ate3")
 
     # Variable names that start with "local" are not saved in checkpoints.
@@ -118,12 +119,11 @@ Setting up Tensorflow for data parallel work
     parser.add_argument('--job-name', default="worker", help='worker or ps')
     parser.add_argument('--num-workers', default=1, type=int, help='Number of workers')
     parser.add_argument('--log-dir', default="/tmp/pong", help='Log directory path')
-    parser.add_argument('--env-id', default="PongDeterministic-v3", help='Environment id')
+    parser.add_argument('--env-id', default="ate3", help='Environment id')
     parser.add_argument('-r', '--remotes', default=None,
                         help='References to environments to create (e.g. -r 20), '
                              'or the address of pre-existing VNC servers and '
                              'rewarders to use (e.g. -r vnc://localhost:5900+15900,vnc://localhost:5901+15901)')
-    parser.add_argument('--port', default=8082, type=int)
 
     # Add visualisation argument
     parser.add_argument('--visualise', action='store_true',
@@ -143,7 +143,7 @@ Setting up Tensorflow for data parallel work
     if args.job_name == "worker":
         server = tf.train.Server(cluster, job_name="worker", task_index=args.task,
                                  config=tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=2))
-        run(args, server)
+        run(args, server, args.task)
     else:
         server = tf.train.Server(cluster, job_name="ps", task_index=args.task,
                                  config=tf.ConfigProto(device_filters=["/job:ps"]))
