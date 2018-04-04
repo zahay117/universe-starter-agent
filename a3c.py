@@ -123,7 +123,7 @@ runner appends the policy to the queue.
             fetched = policy.act(last_state, *last_features)
             action, value_, features = fetched[0], fetched[1], fetched[2:]
             # argmax to convert from one-hot
-            state, reward, terminal, info = env.step(action.argmax())
+            state, reward, terminal, info = env.step()
             if render:
                 env.render()
 
@@ -142,7 +142,7 @@ runner appends the policy to the queue.
                 summary_writer.add_summary(summary, policy.global_step.eval())
                 summary_writer.flush()
 
-            timestep_limit = env.spec.tags.get('wrapper_config.TimeLimit.max_episode_steps')
+            timestep_limit = 100000
             if terminal or length >= timestep_limit:
                 terminal_end = True
                 ep_cnt = ep_cnt + 1
@@ -306,7 +306,7 @@ server.
         rollout = self.pull_batch_from_queue()
         batch = process_rollout(rollout, gamma=0.99, lambda_=1.0)
 
-        should_compute_summary = self.task == 0 and self.local_steps % 11 == 0
+        should_compute_summary = self.local_steps % 11 == 0
 
         if should_compute_summary:
             fetches = [self.summary_op, self.train_op, self.global_step]
