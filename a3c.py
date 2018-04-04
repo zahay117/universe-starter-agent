@@ -101,8 +101,6 @@ that would constantly interact with the environment and tell it what to do.  Thi
 
             self.queue.put(next(rollout_provider), timeout=600000.0)
 
-
-
 def env_runner(env, policy, num_local_steps, summary_writer, render):
     """
 The logic of the thread runner.  In brief, it constantly keeps on running
@@ -113,6 +111,9 @@ runner appends the policy to the queue.
     last_features = policy.get_initial_features()
     length = 0
     rewards = 0
+    ep_cnt = 0
+    total_return, total_return_ten_episodes = 0.0, 0.0
+    record_interval = 10
 
     while True:
         terminal_end = False
@@ -122,12 +123,7 @@ runner appends the policy to the queue.
             fetched = policy.act(last_state, *last_features)
             action, value_, features = fetched[0], fetched[1], fetched[2:]
             # argmax to convert from one-hot
-            # action.argmax() for discrete action space
-            result = env.step(action)
-            state = result[0]
-            reward = result[1]
-            terminal = result[2]
-
+            state, reward, terminal, info = env.step(action.argmax())
             if render:
                 env.render()
 
@@ -138,7 +134,7 @@ runner appends the policy to the queue.
 
             last_state = state
             last_features = features
-            info = {}
+
             if info:
                 summary = tf.Summary()
                 for k, v in info.items():
@@ -146,12 +142,18 @@ runner appends the policy to the queue.
                 summary_writer.add_summary(summary, policy.global_step.eval())
                 summary_writer.flush()
 
-            timestep_limit = 100000
-            # originally this: env.spec.tags.get('wrapper_config.TimeLimit.max_episode_steps')
+            timestep_limit = env.spec.tags.get('wrapper_config.TimeLimit.max_episode_steps')
             if terminal or length >= timestep_limit:
                 terminal_end = True
+                ep_cnt = ep_cnt + 1
+                total_return, total_return_ten_episodes = total_return + rewards, total_return_ten_episodes + rewards
                 if length >= timestep_limit or not env.metadata.get('semantics.autoreset'):
                     last_state = env.reset()
+                if ep_cnt%record_interval == 0:
+                    tf.summary.scalar("model/average_episode_reward_over_ten_episodes", total_return_ten_episodes/float(record_interval))
+                    tf.summary.scalar("model/average_episode_reward", total_return/float(ep_cnt))
+                    tf.summary.scalar("model/episode_count", ep_cnt)
+                    total_return_ten_episodes = 0.0
                 last_features = policy.get_initial_features()
                 print("Episode finished. Sum of rewards: %d. Length: %d" % (rewards, length))
                 length = 0
@@ -248,7 +250,7 @@ should be computed.
             if use_tf12_api:
                 tf.summary.scalar("model/policy_loss", tf.to_float(pi_loss) / bs)
                 tf.summary.scalar("model/value_loss", tf.to_float(vf_loss) / bs)
-                tf.summary.scalar("model/entropy", tf.to_float(entropy) / bs)
+                #tf.summary.scalar("model/entropy", tf.to_float(entropy) / bs)
                 #tf.summary.image("model/state", tf.to_float(pi.x))
                 tf.summary.scalar("model/grad_global_norm", tf.global_norm(grads))
                 tf.summary.scalar("model/var_global_norm", tf.global_norm(pi.var_list))
@@ -257,8 +259,8 @@ should be computed.
             else:
                 tf.scalar_summary("model/policy_loss", pi_loss / bs)
                 tf.scalar_summary("model/value_loss", vf_loss / bs)
-                tf.scalar_summary("model/entropy", entropy / bs)
-                tf.image_summary("model/state", pi.x)
+                #tf.scalar_summary("model/entropy", entropy / bs)
+                #tf.image_summary("model/state", pi.x)
                 tf.scalar_summary("model/grad_global_norm", tf.global_norm(grads))
                 tf.scalar_summary("model/var_global_norm", tf.global_norm(pi.var_list))
                 self.summary_op = tf.merge_all_summaries()
