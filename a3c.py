@@ -2,7 +2,7 @@ from __future__ import print_function
 from collections import namedtuple
 import numpy as np
 import tensorflow as tf
-from model import LSTMPolicy, LSTMPolicyContinuous
+from model import LSTMPolicyContinuous
 import six.moves.queue as queue
 import scipy.signal
 import threading
@@ -123,7 +123,7 @@ runner appends the policy to the queue.
             fetched = policy.act(last_state, *last_features)
             action, value_, features = fetched[0], fetched[1], fetched[2:]
             # argmax to convert from one-hot
-            state, reward, terminal, info = env.step()
+            state, reward, terminal, info = env.step(action)
             if render:
                 env.render()
 
@@ -150,9 +150,13 @@ runner appends the policy to the queue.
                 if length >= timestep_limit or not env.metadata.get('semantics.autoreset'):
                     last_state = env.reset()
                 if ep_cnt%record_interval == 0:
-                    tf.summary.scalar("model/average_episode_reward_over_ten_episodes", total_return_ten_episodes/float(record_interval))
-                    tf.summary.scalar("model/average_episode_reward", total_return/float(ep_cnt))
-                    tf.summary.scalar("model/episode_count", ep_cnt)
+                    summary = tf.Summary()
+                    summary.value.add(tag="average_episode_reward_over_recent_episodes",
+                                      simple_value=total_return_ten_episodes/float(record_interval))
+                    summary.value.add(tag="average_episode_reward", simple_value=total_return/float(ep_cnt))
+                    summary.value.add(tag="episode_count", simple_value=float(ep_cnt))
+                    summary_writer.add_summary(summary, policy.global_step.eval())
+                    summary_writer.flush()
                     total_return_ten_episodes = 0.0
                 last_features = policy.get_initial_features()
                 print("Episode finished. Sum of rewards: %d. Length: %d" % (rewards, length))
@@ -167,7 +171,7 @@ runner appends the policy to the queue.
         yield rollout
 
 class A3C(object):
-    def __init__(self, env, task, visualise, is_ate3 = True):
+    def __init__(self, env, task, visualise):
         """
 An implementation of the A3C algorithm that is reasonably well-tuned for the VNC environments.
 Below, we will have a modest amount of complexity due to the way TensorFlow handles data parallelism.
@@ -180,61 +184,32 @@ should be computed.
         worker_device = "/job:worker/task:{}/cpu:0".format(task)
         with tf.device(tf.train.replica_device_setter(1, worker_device=worker_device)):
             with tf.variable_scope("global"):
-                # To-Do: env.action_space.n -> env.action_space.shape
-                if (is_ate3) :
-                    self.network = LSTMPolicyContinuous(env.observation_space.shape, env.action_space.shape)
-                else :
-                    self.network = LSTMPolicy(env.observation_space.shape, env.action_space.n)
+                self.network = LSTMPolicyContinuous(env.observation_space.shape, env.action_space.shape)
                 self.global_step = tf.get_variable("global_step", [], tf.int32, initializer=tf.constant_initializer(0, dtype=tf.int32),
                                                    trainable=False)
 
         with tf.device(worker_device):
             with tf.variable_scope("local"):
-                # To-Do: env.action_space.n -> env.action_space.shape
-                if (is_ate3) :
-                    self.local_network = pi = LSTMPolicyContinuous(env.observation_space.shape, env.action_space.shape)
-                else :
-                    self.local_network = pi = LSTMPolicy(env.observation_space.shape, env.action_space.n)
+                self.local_network = pi = LSTMPolicyContinuous(env.observation_space.shape, env.action_space.shape)
                 pi.global_step = self.global_step
 
-            if (is_ate3):
-                self.ac = tf.placeholder(tf.float64, [None, env.action_space.shape[0]], name="ac")
-            else:
-                self.ac = tf.placeholder(tf.float64, [None, env.action_space.n], name="ac")
+            self.ac = tf.placeholder(tf.float64, [None, env.action_space.shape[0]], name="ac")
             self.adv = tf.placeholder(tf.float64, [None], name="adv")
             self.r = tf.placeholder(tf.float64, [None], name="r")
 
-            if is_ate3:
-                # the "policy gradients" loss:  its derivative is precisely the policy gradient
-                # notice that self.ac is a placeholder that is provided externally.
-                # adv will contain the advantages, as calculated in process_rollout
-                pi_loss = tf.nn.l2_loss(self.ac - pi.logits)
+            # the "policy gradients" loss:  its derivative is precisely the policy gradient
+            # notice that self.ac is a placeholder that is provided externally.
+            # adv will contain the advantages, as calculated in process_rollout
+            pi_loss = tf.nn.l2_loss(self.ac - pi.logits)
 
-                # loss of value function
-                vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
+            # loss of value function
+            vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
 
-                # To-Do: Non-Zero Entropy
-                entropy = 0
+            # To-Do: Non-Zero Entropy
+            entropy = 0
 
-                bs = tf.to_float(tf.shape(pi.x)[0])
-                self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
-            else:
-                log_prob_tf = tf.nn.log_softmax(pi.logits)
-                prob_tf = tf.nn.softmax(pi.logits)
-
-                # the "policy gradients" loss:  its derivative is precisely the policy gradient
-                # notice that self.ac is a placeholder that is provided externally.
-                # adv will contain the advantages, as calculated in process_rollout
-                pi_loss = - tf.reduce_sum(tf.reduce_sum(log_prob_tf * self.ac, [1]) * self.adv)
-
-                # loss of value function
-                vf_loss = 0.5 * tf.reduce_sum(tf.square(pi.vf - self.r))
-
-                # To-Do: Non-Zero Entropy
-                entropy = - tf.reduce_sum(prob_tf * log_prob_tf)
-
-                bs = tf.to_float(tf.shape(pi.x)[0])
-                self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
+            bs = tf.to_float(tf.shape(pi.x)[0])
+            self.loss = pi_loss + 0.5 * vf_loss - entropy * 0.01
 
             # 20 represents the number of "local steps":  the number of timesteps
             # we run the policy before we update the parameters.

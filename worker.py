@@ -25,8 +25,8 @@ class FastSaver(tf.train.Saver):
 
 def run(args, server, task_num):
     # To-Do: replace with ATE3 environment
-    env = create_env(args.env_id, 8082 + task_num, client_id=str(args.task), remotes=args.remotes)
-    trainer = A3C(env, args.task, args.visualise, args.env_id == "ate3")
+    env = create_env(args.env_id, 8082 + task_num, client_id=str(args.task), remotes=None)
+    trainer = A3C(env, args.task, args.visualise)
 
     # Variable names that start with "local" are not saved in checkpoints.
     if use_tf12_api:
@@ -120,10 +120,6 @@ Setting up Tensorflow for data parallel work
     parser.add_argument('--num-workers', default=1, type=int, help='Number of workers')
     parser.add_argument('--log-dir', default="/tmp/pong", help='Log directory path')
     parser.add_argument('--env-id', default="ate3", help='Environment id')
-    parser.add_argument('-r', '--remotes', default=None,
-                        help='References to environments to create (e.g. -r 20), '
-                             'or the address of pre-existing VNC servers and '
-                             'rewarders to use (e.g. -r vnc://localhost:5900+15900,vnc://localhost:5901+15901)')
 
     # Add visualisation argument
     parser.add_argument('--visualise', action='store_true',

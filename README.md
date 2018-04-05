@@ -1,7 +1,6 @@
-# universe-starter-agent
+# universe-starter-agent (for continuous control)
 
-The codebase implements a starter agent that can solve a number of `universe` environments.
-It contains a basic implementation of the [A3C algorithm](https://arxiv.org/abs/1602.01783), adapted for real-time environments.
+a basic implementation of the [A3C algorithm](https://arxiv.org/abs/1602.01783), with continuous control.
 
 # To-Dos
 * Command line argument to specify scenario file
@@ -48,7 +47,6 @@ Add the following to your `.bashrc` so that you'll have the correct environment 
 ```source activate universe-starter-agent```
 
 ## ATE3 Simulator
-
 `python train.py --num-workers 2  --log-dir /tmp/ate3`
 
 The command above will train an agent on ATE3 simulator.
@@ -65,3 +63,9 @@ Once in the tmux session, you can see all your windows with `ctrl-b w`.
 To switch to window number 0, type: `ctrl-b 0`. Look up tmux documentation for more commands.
 
 To access TensorBoard to see various monitoring metrics of the agent, open [http://localhost:12345/](http://localhost:12345/) in a browser.
+
+Other commands:
+* `python worker.py --job-name ps --num-workers 1`
+    * creates a single parameter server
+* `python worker.py --job-name worker --num-workers 1`
+    * creates a single worker to interact with environment
